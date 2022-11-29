@@ -8,11 +8,9 @@ app.set("view engine", "ejs")
 function generateRandomString() {
   let alphaNumeric = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let randomString = '';
-  let number = 0;
 
   function randomNumberGenerator() {
-    number = Math.floor(Math.random() * alphaNumeric.length);
-    return number;
+    return Math.floor(Math.random() * alphaNumeric.length);
   };
 
   for (let i = 0; i < 6; i++) {
@@ -42,6 +40,8 @@ app.get("/urls/new", (req, res) => {
 
 app.post("/urls", (req, res) => {
   console.log(req.body); // Log the POST request body to the console
+  const shortUrl = generateRandomString();
+  urlDatabase[shortUrl] = req.body.longURL;
   res.send("Ok"); // Respond with 'Ok' (we will replace this)
 });
 
