@@ -16,26 +16,23 @@
     />
     <title>TinyApp</title>
   </head>
+
   <body>
     <header>
       <%- include('partials/_header') %>
     </header>
     <main style="margin: 1em;">
-      <h3>My URLs</h3>
+      <h3>TinyURL for: <%= longURL %></h3>
       <table class="table">
         <thead>
           <tr>
             <th scope="col">Short URL ID</th>
-            <th scope="col">Long URL</th>
           </tr>
         </thead>
-        <tbody>
-          <% for (let id in urls) { %>
+        <tbody>         
             <tr>
-              <td><%= id %></td>
-              <td><%= urls[id] %></td>
+              <td><a href="/u/<%= id %>"><%= id %></a></td>
             </tr>
-          <% } %>
         </tbody>
       </table>
     </main>
