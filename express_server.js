@@ -45,9 +45,20 @@ app.post("/urls", (req, res) => {
   res.redirect(`/urls/${shortUrl}`); 
 });
 
+// Delete existing entry in the Database
 app.post("/urls/:id/delete", (req, res) => {
   const shortUrl = req.params.id;
   delete urlDatabase[shortUrl];
+  res.redirect(`/urls`);
+})
+
+// Edit existing URL to a different one based on user input
+app.post("/urls/:id/newUrl", (req, res) => {
+  const shortUrl = req.params.id;
+  const newUrl = req.body.newUrl;
+
+  urlDatabase[shortUrl] = newUrl;
+
   res.redirect(`/urls`);
 })
 
