@@ -37,7 +37,12 @@ const urlDatabase = {
 
 // Features start here! 
 
-
+app.get("/register", (req, res) => {
+  const templateVars = { 
+    username: req.cookies["username"],
+  };
+  res.render("urls_regis", templateVars);
+})
 
 // logging in and saving cookies of the info
 app.post("/login", (req, res) => {
