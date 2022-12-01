@@ -33,16 +33,47 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
+// Data storage for users who access the webpage
+const users = {
+  userRandomID: {
+    id: "userRandomID",
+    email: "user@example.com",
+    password: "purple-monkey-dinosaur",
+  },
+  user2RandomID: {
+    id: "user2RandomID",
+    email: "user2@example.com",
+    password: "dishwasher-funk",
+  },
+};
 
 
 // Features start here! 
 
+
+app.post("/register", (req, res) => {
+  const newId = generateRandomString(); 
+  users[newId] = {
+    id: newId,
+    email: req.body.email,
+    password: req.body.password,
+  }
+  res.cookie('user_id', newId);
+  res.redirect('/urls');
+})
+
+
+// Accesses /register
 app.get("/register", (req, res) => {
+  const userId = req.cookies['user_id'];
+  const user = users[userId];
+
   const templateVars = { 
-    username: req.cookies["username"],
+    user: user,
   };
   res.render("urls_regis", templateVars);
 })
+
 
 // logging in and saving cookies of the info
 app.post("/login", (req, res) => {
@@ -54,6 +85,7 @@ app.post("/login", (req, res) => {
   res.redirect('/urls');
 })
 
+// logging out and clearing cookie of the previously signed in acc
 app.post('/logout', (req, res) => {
   res.clearCookie('username');
   res.redirect('urls');
@@ -61,17 +93,27 @@ app.post('/logout', (req, res) => {
 
 // List of available shortURL and its corresponding longURL, along with features available
 app.get("/urls", (req, res) => {
+  const userId = req.cookies['user_id'];
+  const user = users[userId];
+
+  console.log(user);
+
   const templateVars = { 
     urls: urlDatabase,
-    username: req.cookies["username"],
+    user: user,
   };
+  console.log(templateVars);
   res.render("urls_index", templateVars);
 })
 
 // Add new longURL 
 app.get("/urls/new", (req, res) => {
-  const templateVars = {
-    username: req.cookies["username"],
+  const userId = req.cookies['user_id'];
+  const user = users[userId];
+
+  const templateVars = { 
+    user: user,
+
   };
   res.render("urls_new", templateVars);
 });
@@ -79,9 +121,13 @@ app.get("/urls/new", (req, res) => {
 // Displays all the shortUrl and its corresponding longUrl
 app.post("/urls", (req, res) => {
   
-  const templateVars = {
-    username: req.cookies["username"],
+  const userId = req.cookies['user_id'];
+  const user = users[userId];
+
+  const templateVars = { 
+    user: user,
   };
+
   console.log(req.body); // Log the POST request body to the console
   const shortUrl = generateRandomString();
   urlDatabase[shortUrl] = req.body.longURL;
@@ -108,11 +154,16 @@ app.post("/urls/:id/newUrl", (req, res) => {
 // Assigns new longURL to shortURL  
 app.get("/urls/:id", (req, res) => {
   const shortUrl = req.params.id;
+  
+  const userId = req.cookies['user_id'];
+  const user = users[userId];
+
   const templateVars = { 
     id: shortUrl, 
     longURL: urlDatabase[shortUrl],
-    username: req.cookies["username"],
+    user: user,
   };
+
   res.render("urls_show", templateVars);
 })
 
