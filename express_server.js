@@ -37,7 +37,7 @@ const users = {
   userRandomID: {
     id: "userRandomID",
     email: "user@example.com",
-    password: "purple-monkey-dinosaur",
+    password: "123456",
   },
   user2RandomID: {
     id: "user2RandomID",
@@ -103,11 +103,23 @@ app.get("/register", (req, res) => {
   const templateVars = { 
     user: user,
   };
+
+  if (userId) {
+    res.redirect('/urls');
+    return;
+  }
+
   res.render("urls_regis", templateVars);
 })
 
 // Displays login page
 app.get("/login", (req, res) => {
+  const userId = req.cookies['user_id'];
+
+  if (userId) {
+    res.redirect('/urls');
+    return;
+  }
   res.render("urls_login");
 })
 
@@ -151,20 +163,23 @@ app.get("/urls", (req, res) => {
     user: user,
   };
 
-  console.log(users);
-
   res.render("urls_index", templateVars);
 })
 
 // Displays all the shortUrl and its corresponding longUrl
 app.post("/urls", (req, res) => {
-  
   const userId = req.cookies['user_id'];
   const user = users[userId];
 
   const templateVars = { 
     user: user,
   };
+
+  if (!userId) {
+    res.status(401).send('This feature is only available to registered users. Please login!');
+    return;
+  }
+
 
   console.log(req.body); // Log the POST request body to the console
   const shortUrl = generateRandomString();
@@ -179,8 +194,13 @@ app.get("/urls/new", (req, res) => {
 
   const templateVars = { 
     user: user,
-
   };
+
+  if (!userId) {
+    res.redirect('/login');
+    return;
+  }
+
   res.render("urls_new", templateVars);
 });
 
@@ -219,8 +239,15 @@ app.get("/urls/:id", (req, res) => {
 
 // Transferring from shortURL to longURL
 app.get("/u/:id", (req, res) => {
-  const longURL = urlDatabase[req.params.id];
-  res.redirect(longURL);
+  let shortUrl = req.params.id;
+  const longUrl = urlDatabase[shortUrl];
+
+  if (!longUrl) {
+    res.status(400).send(`The short URL ID ${shortUrl} does not exist.`);
+    return;
+  }
+
+  res.redirect(longUrl);
 })
 
 // Homepage, greets with Hello
