@@ -56,6 +56,15 @@ function getUserByEmail(email) {
   return false;
 }
 
+// Look up whether password matches with what is stored within users data storage
+function passwordCheck(pw) {
+  for (let i in users) {
+    if(pw === users[i].password) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // Features start here! 
 
@@ -105,19 +114,31 @@ app.get("/login", (req, res) => {
 // logging in and saving cookies of the info
 app.post("/login", (req, res) => {
 
-  let email = req.body.email;   // username is what the user entered
+  let email = req.body.email;   
   let pw = req.body.password; 
-  let cookieInfo = [email, pw];
 
-  res.cookie('user_id', cookieInfo);   // creates a cookie
+  if(!getUserByEmail(email)) {
+    res.status(403).send('That email cannot be found.');
+    return;
+  } else {
+    if (!passwordCheck(pw)) {
+      res.status(403).send('That password is incorrect');
+    } else {
 
-  res.redirect('/urls');
+      for (let i in users) {
+        if(email === users[i].email) {
+          res.cookie('user_id', i);
+        }
+      }
+      res.redirect('/urls');
+    }
+  }
 })
 
 // logging out and clearing cookie of the previously signed in acc
 app.post('/logout', (req, res) => {
   res.clearCookie('user_id');
-  res.redirect('urls');
+  res.redirect('/login');
 })
 
 // List of available shortURL and its corresponding longURL, along with features available
@@ -129,6 +150,9 @@ app.get("/urls", (req, res) => {
     urls: urlDatabase,
     user: user,
   };
+
+  console.log(users);
+
   res.render("urls_index", templateVars);
 })
 
