@@ -26,7 +26,6 @@ function generateRandomString() {
 
   return randomString;
 }
-
 // Initial database containing short URL and its corresponding long URL
 const urlDatabase = {
   "b2xVn2": "http://www.lighthouselabs.ca",
@@ -47,17 +46,41 @@ const users = {
   },
 };
 
+// Look up whether email already exists within the users data storage
+function getUserByEmail(email) {
+  for (let i in users) {
+    if(email === users[i].email) {
+      return true;
+    }
+  }
+  return false;
+}
+
 
 // Features start here! 
 
-
+// Sign up for account using email and password
 app.post("/register", (req, res) => {
   const newId = generateRandomString(); 
+  let email = req.body.email;
+  let pw = req.body.password;
+
+  if(email === "" || pw === "") {
+    res.status(400).send('Please fill out both email and password.');
+    return;
+  }
+  
+  if(getUserByEmail(email)) {
+    res.status(400).send('That email is unavailable.');
+    return;
+  }
+
   users[newId] = {
     id: newId,
-    email: req.body.email,
-    password: req.body.password,
+    email: email,
+    password: pw,
   }
+
   res.cookie('user_id', newId);
   res.redirect('/urls');
 })
@@ -74,20 +97,26 @@ app.get("/register", (req, res) => {
   res.render("urls_regis", templateVars);
 })
 
+// Displays login page
+app.get("/login", (req, res) => {
+  res.render("urls_login");
+})
 
 // logging in and saving cookies of the info
 app.post("/login", (req, res) => {
 
-  let login = req.body.username;   // username is what the user entered
+  let email = req.body.email;   // username is what the user entered
+  let pw = req.body.password; 
+  let cookieInfo = [email, pw];
 
-  res.cookie('username', login);   // creates a cookie
+  res.cookie('user_id', cookieInfo);   // creates a cookie
 
   res.redirect('/urls');
 })
 
 // logging out and clearing cookie of the previously signed in acc
 app.post('/logout', (req, res) => {
-  res.clearCookie('username');
+  res.clearCookie('user_id');
   res.redirect('urls');
 })
 
@@ -96,27 +125,12 @@ app.get("/urls", (req, res) => {
   const userId = req.cookies['user_id'];
   const user = users[userId];
 
-  console.log(user);
-
   const templateVars = { 
     urls: urlDatabase,
     user: user,
   };
-  console.log(templateVars);
   res.render("urls_index", templateVars);
 })
-
-// Add new longURL 
-app.get("/urls/new", (req, res) => {
-  const userId = req.cookies['user_id'];
-  const user = users[userId];
-
-  const templateVars = { 
-    user: user,
-
-  };
-  res.render("urls_new", templateVars);
-});
 
 // Displays all the shortUrl and its corresponding longUrl
 app.post("/urls", (req, res) => {
@@ -132,6 +146,18 @@ app.post("/urls", (req, res) => {
   const shortUrl = generateRandomString();
   urlDatabase[shortUrl] = req.body.longURL;
   res.redirect(`/urls/${shortUrl}`, templateVars); 
+});
+
+// Add new longURL 
+app.get("/urls/new", (req, res) => {
+  const userId = req.cookies['user_id'];
+  const user = users[userId];
+
+  const templateVars = { 
+    user: user,
+
+  };
+  res.render("urls_new", templateVars);
 });
 
 // Delete existing entry in the Database
