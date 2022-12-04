@@ -1,18 +1,26 @@
 const express = require("express");
-var cookieParser = require('cookie-parser')
+//  var cookieParser = require('cookie-parser')
 const bcrypt = require("bcryptjs");
-
-const app = express();
+const cookieSession = require('cookie-session');  //encrypt cookie - need to do npm install cookie-session --save
 const PORT = 8080; // default port 8080
+const app = express();
 
-app.use(express.urlencoded({ extended: true }));
+//  config
 app.set("view engine", "ejs")
 
-app.use(cookieParser());
+//  middleware
+app.use(express.urlencoded({ extended: false })); // changed from true to false when using cookieSession insetad of cookieParser
+app.use(cookieSession({
+  name: 'cookiemonster',
+  keys: ['hfy843hfhdsakfytdsaghfbad43q46', 'fhdjak4728946fa6df8sdhffa646']
+}));
+
+//app.use(cookieParser());  // No longer using it after using cookie-session
+
 // Dependencies up to this point
+// ===============================================================================
 
 // function to generate random string with 6 alphanumeric characters
-
 function generateRandomString() {
   let alphaNumeric = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   let randomString = '';
@@ -76,8 +84,6 @@ function urlsForUser(id)  {
   return ownURL;
 }
 
-console.log(urlsForUser('userRandomID'));
-
 // Look up whether email already exists within the users data storage
 function getUserByEmail(email) {
   for (let i in users) {
@@ -101,9 +107,11 @@ function passwordCheck(email, pw) {
 }
 
 // Features start here! 
+// ====================================================================================
 
 // Sign up for account using email and password
 // Hashed!
+// Cookie has been encrypted! 
 app.post("/register", (req, res) => {
   const newId = generateRandomString(); 
   let email = req.body.email;
@@ -126,14 +134,16 @@ app.post("/register", (req, res) => {
     password: hpw,
   }
 
-  res.cookie('user_id', newId);
+  //res.cookie('user_id', newId);
+  req.session.user_id = newId;
   res.redirect('/urls');
 })
 
 
 // Accesses /register
 app.get("/register", (req, res) => {
-  const userId = req.cookies['user_id'];
+  // const userId = req.cookies['user_id'];
+  const userId = req.session.user_id;
   const user = users[userId];
 
   const templateVars = { 
@@ -150,7 +160,8 @@ app.get("/register", (req, res) => {
 
 // Displays login page
 app.get("/login", (req, res) => {
-  const userId = req.cookies['user_id'];
+  // const userId = req.cookies['user_id'];
+  const userId = req.session.user_id;
 
   if (userId) {
     res.redirect('/urls');
@@ -175,7 +186,8 @@ app.post("/login", (req, res) => {
 
       for (let i in users) {
         if(email === users[i].email) {
-          res.cookie('user_id', i);
+          req.session.user_id = i;
+          // res.cookie('user_id', i);
         }
       }
       res.redirect('/urls');
@@ -185,13 +197,14 @@ app.post("/login", (req, res) => {
 
 // logging out and clearing cookie of the previously signed in acc
 app.post('/logout', (req, res) => {
-  res.clearCookie('user_id');
+  // res.clearCookie('user_id');
+  req.session = null;   // This is how you clear cookie with cookieSession
   res.redirect('/login');
 })
 
 // List of available shortURL and its corresponding longURL, along with features available
 app.get("/urls", (req, res) => {
-  const userId = req.cookies['user_id'];
+  const userId = req.session.user_id;
   const user = users[userId];
 
   if (!userId) {
@@ -211,7 +224,7 @@ app.get("/urls", (req, res) => {
 // Fixed!
 app.post("/urls", (req, res) => {
 
-  const userId = req.cookies['user_id'];
+  const userId = req.session.user_id;
   const user = users[userId];
 
   console.log(req.body); // Log the POST request body to the console
@@ -232,7 +245,7 @@ app.post("/urls", (req, res) => {
 // Add new longURL 
 // Fixed!
 app.get("/urls/new", (req, res) => {
-  const userId = req.cookies['user_id'];
+  const userId = req.session.user_id;
   const user = users[userId];
 
   if (!userId) {
@@ -252,8 +265,7 @@ app.get("/urls/new", (req, res) => {
 app.post("/urls/:id/delete", (req, res) => {
   const shortURL = req.params.id;
 
-  const userId = req.cookies['user_id'];
-  //const user = users[userId];
+  const userId = req.session.user_id;
 
   let obj = urlsForUser(userId);
 
@@ -268,7 +280,7 @@ app.post("/urls/:id/delete", (req, res) => {
 // Edit existing URL to a different one based on user input
 // Fixed! 
 app.post("/urls/:id/newUrl", (req, res) => {
-  const userId = req.cookies['user_id'];
+  const userId = req.session.user_id;
   const shortURL = req.params.id;
   const newUrl = req.body.newUrl;
 
@@ -277,7 +289,7 @@ app.post("/urls/:id/newUrl", (req, res) => {
   if(!obj.hasOwnProperty(shortURL)) {
     res.status(401).send('You do not own this URL!');
   };
-  
+
   urlDatabase[shortURL].longURL = newUrl;
 
   res.redirect(`/urls`);
@@ -288,7 +300,7 @@ app.post("/urls/:id/newUrl", (req, res) => {
 app.get("/urls/:id", (req, res) => {
   const shortURL = req.params.id;
 
-  const userId = req.cookies['user_id'];
+  const userId = req.session.user_id;
   const user = users[userId];
 
   if (!userId) {
