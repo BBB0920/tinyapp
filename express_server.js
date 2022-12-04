@@ -5,6 +5,8 @@ const cookieSession = require('cookie-session');  //encrypt cookie - need to do 
 const PORT = 8080; // default port 8080
 const app = express();
 
+const getUserByEmail = require('./helper');
+
 //  config
 app.set("view engine", "ejs")
 
@@ -84,15 +86,7 @@ function urlsForUser(id)  {
   return ownURL;
 }
 
-// Look up whether email already exists within the users data storage
-function getUserByEmail(email) {
-  for (let i in users) {
-    if(email === users[i].email) {
-      return true;
-    }
-  }
-  return false;
-}
+
 
 // Look up whether password matches with what is stored within users data storage
 // hashed! 
@@ -105,6 +99,8 @@ function passwordCheck(email, pw) {
   }
   return false;
 }
+
+
 
 // Features start here! 
 // ====================================================================================
@@ -123,7 +119,7 @@ app.post("/register", (req, res) => {
     return;
   }
   
-  if(getUserByEmail(email)) {
+  if(getUserByEmail(email, users)) {
     res.status(400).send('That email is unavailable.');
     return;
   }
@@ -176,7 +172,7 @@ app.post("/login", (req, res) => {
   let email = req.body.email;   
   let pw = req.body.password; 
 
-  if(!getUserByEmail(email)) {
+  if(!getUserByEmail(email, users)) {
     res.status(403).send('That email cannot be found.');
     return;
   } else {
