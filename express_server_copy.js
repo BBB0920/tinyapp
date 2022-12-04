@@ -1,12 +1,10 @@
-//Submission Copy
-//ESlint was not used as I wanted to practice 
-
-// Dependencies for the codes
+//This copy contains my personal notes meant for myself only
 
 const express = require("express");
+//  var cookieParser = require('cookie-parser')
 const bcrypt = require("bcryptjs");
-const cookieSession = require('cookie-session');  
-const PORT = 8080; 
+const cookieSession = require('cookie-session');  //encrypt cookie - need to do npm install cookie-session --save
+const PORT = 8080; // default port 8080
 const app = express();
 
 const getUserByEmail = require('./helpers');
@@ -15,13 +13,16 @@ const getUserByEmail = require('./helpers');
 app.set("view engine", "ejs")
 
 //  middleware
-app.use(express.urlencoded({ extended: false })); 
+app.use(express.urlencoded({ extended: false })); // changed from true to false when using cookieSession insetad of cookieParser
 app.use(cookieSession({
   name: 'cookiemonster',
   keys: ['hfy843hfhdsakfytdsaghfbad43q46', 'fhdjak4728946fa6df8sdhffa646']
 }));
-// ===============================================================================================
-// Functions and Databases
+
+//app.use(cookieParser());  // No longer using it after using cookie-session
+
+// Dependencies up to this point
+// ===============================================================================
 
 // function to generate random string with 6 alphanumeric characters
 function generateRandomString() {
@@ -54,9 +55,12 @@ let urlDatabase = {
     longURL: "http://www.gmail.com", 
     userID: "111111",
   }
+  // "b2xVn2": "http://www.lighthouselabs.ca",
+  // "9sm5xK": "http://www.google.com"
+
 };
 
-// Initial data storage
+// Data storage for users who access the webpage
 const users = {
   "111111": {
     id: "userRandomID",
@@ -70,7 +74,7 @@ const users = {
   },
 };
 
-// Function that returns URLs that belongs to that user
+// function that returns URLs that belongs to that user
 function urlsForUser(id)  {
   let ownURL = {};
   for (let i in urlDatabase) {
@@ -85,7 +89,9 @@ function urlsForUser(id)  {
 }
 
 // Look up whether password matches with what is stored within users data storage
+// hashed! 
 function passwordCheck(email, pw) {
+
   for (let i in users) {
     if (users[i].email === email) {
       return bcrypt.compareSync(pw, users[i].password);
@@ -94,22 +100,26 @@ function passwordCheck(email, pw) {
   return false;
 }
 
-// ===============================================================================================
-// Features
 
-// Sign up for account using email and password, then stores that information in the database. Password is encrypted. 
+
+// Features start here! 
+// ====================================================================================
+
+// Sign up for account using email and password
+// Hashed!
+// Cookie has been encrypted! 
 app.post("/register", (req, res) => {
   const newId = generateRandomString(); 
   let email = req.body.email;
   let pw = req.body.password;
   let hpw = bcrypt.hashSync(pw, 10);
 
-  if (email === "" || pw === "") {
+  if(email === "" || pw === "") {
     res.status(400).send('Please fill out both email and password.');
     return;
   }
   
-  if (getUserByEmail(email, users)) {
+  if(getUserByEmail(email, users)) {
     res.status(400).send('That email is unavailable.');
     return;
   }
@@ -120,13 +130,15 @@ app.post("/register", (req, res) => {
     password: hpw,
   }
 
+  //res.cookie('user_id', newId);
   req.session.user_id = newId;
   res.redirect('/urls');
 })
 
 
-// Accesses registration page - can only be accessed if not logged in, otherwise redirected to /urls
-app.get ("/register", (req, res) => {
+// Accesses /register
+app.get("/register", (req, res) => {
+  // const userId = req.cookies['user_id'];
   const userId = req.session.user_id;
   const user = users[userId];
 
@@ -140,29 +152,27 @@ app.get ("/register", (req, res) => {
   }
 
   res.render("urls_regis", templateVars);
-
 })
 
-// Displays login page - can only be accessed if not logged in, otherwise redirected to /urls
+// Displays login page
 app.get("/login", (req, res) => {
+  // const userId = req.cookies['user_id'];
   const userId = req.session.user_id;
 
   if (userId) {
     res.redirect('/urls');
     return;
   }
-
   res.render("urls_login");
-
 })
 
-// Login validation - if email/password combination is missing or not correct, appropriate messages are displayed. 
-// Encrypted cookie is generated
+// logging in and saving cookies of the info
 app.post("/login", (req, res) => {
+
   let email = req.body.email;   
   let pw = req.body.password; 
 
-  if (!getUserByEmail(email, users)) {
+  if(!getUserByEmail(email, users)) {
     res.status(403).send('That email cannot be found.');
     return;
   } else {
@@ -171,8 +181,9 @@ app.post("/login", (req, res) => {
     } else {
 
       for (let i in users) {
-        if (email === users[i].email) {
+        if(email === users[i].email) {
           req.session.user_id = i;
+          // res.cookie('user_id', i);
         }
       }
       res.redirect('/urls');
@@ -180,13 +191,14 @@ app.post("/login", (req, res) => {
   }
 })
 
-// Logs out - cookie is cleared
+// logging out and clearing cookie of the previously signed in acc
 app.post('/logout', (req, res) => {
-  req.session = null;
+  // res.clearCookie('user_id');
+  req.session = null;   // This is how you clear cookie with cookieSession
   res.redirect('/login');
 })
 
-// List of available shortURL and its corresponding longURL, along with features available. Is only visible if logged in. 
+// List of available shortURL and its corresponding longURL, along with features available
 app.get("/urls", (req, res) => {
   const userId = req.session.user_id;
   const user = users[userId];
@@ -197,24 +209,21 @@ app.get("/urls", (req, res) => {
   }
 
   const templateVars = { 
-    urls: urlsForUser(userId),
+    urls: urlsForUser(userId),  // Solved
     user: user,
   };
 
   res.render("urls_index", templateVars);
 })
 
-// Creates a new shortURL. Can only be used while logged in. 
+// Displays all the shortURL and its corresponding longURL
+// Fixed!
 app.post("/urls", (req, res) => {
 
   const userId = req.session.user_id;
   const user = users[userId];
 
-  if (!userId) {
-    res.status(401).send('This feature is only available to registered users. Please login!');
-    return;
-  }
-
+  console.log(req.body); // Log the POST request body to the console
   const shortURL = generateRandomString();
 
   urlDatabase[shortURL] = {
@@ -229,7 +238,8 @@ app.post("/urls", (req, res) => {
   res.redirect(`/urls/${shortURL}`); 
 });
 
-// Directs to a page that will generate new shortURL. Can only be used while logged in. 
+// Add new longURL 
+// Fixed!
 app.get("/urls/new", (req, res) => {
   const userId = req.session.user_id;
   const user = users[userId];
@@ -246,15 +256,12 @@ app.get("/urls/new", (req, res) => {
   res.render("urls_new", templateVars);
 });
 
-// Delete existing shortURL and related data in the Database. The data must belong to the logged in user to be deleted. 
+// Delete existing entry in the Database
+// Fixed!
 app.post("/urls/:id/delete", (req, res) => {
   const shortURL = req.params.id;
 
   const userId = req.session.user_id;
-
-  if (!userId) {
-    return res.redirect('/login');
-  }
 
   let obj = urlsForUser(userId);
 
@@ -266,7 +273,8 @@ app.post("/urls/:id/delete", (req, res) => {
   res.redirect(`/urls`);
 })
 
-// Assigns a new longURL to shortURL. The shortURL must belong to the logged in user to be edited 
+// Edit existing URL to a different one based on user input
+// Fixed! 
 app.post("/urls/:id/newUrl", (req, res) => {
   const userId = req.session.user_id;
   const shortURL = req.params.id;
@@ -283,7 +291,8 @@ app.post("/urls/:id/newUrl", (req, res) => {
   res.redirect(`/urls`);
 })
 
-// Returns a page with shortURL. The shortURL must belong to the logged in user to be edited.
+// Assigns new longURL to shortURL  
+// Fixed! 
 app.get("/urls/:id", (req, res) => {
   const shortURL = req.params.id;
 
@@ -317,7 +326,8 @@ app.get("/urls/:id", (req, res) => {
   res.render("urls_show", templateVars);
 })
 
-// Redirects user to longURL through shortURL. 
+// Transferring from shortURL to longURL
+// Fixed! 
 app.get("/u/:id", (req, res) => {
   let shortURL = req.params.id;
   const longURL = urlDatabase[shortURL].longURL;
