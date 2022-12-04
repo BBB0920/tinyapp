@@ -23,6 +23,7 @@
       <a class = "nav-item nav-link">Logged in as: <%= user.email %></a>
       <form method = "POST" action = "/logout">
         <button type = "submit">Logout</button>
+      </form>
     <% } else { %>
       <form method = "GET" action = "/login">
         <button type = "submit">Login</button>

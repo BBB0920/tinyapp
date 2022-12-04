@@ -1,5 +1,6 @@
 const express = require("express");
 var cookieParser = require('cookie-parser')
+const bcrypt = require("bcryptjs");
 
 const app = express();
 const PORT = 8080; // default port 8080
@@ -26,25 +27,56 @@ function generateRandomString() {
 
   return randomString;
 }
+
 // Initial database containing short URL and its corresponding long URL
-const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+let urlDatabase = {
+
+  "b2xVn2": {
+    longURL: "http://www.lighthouselabs.ca",
+    userID: "111111",
+  },
+  "9sm5xK": {
+    longURL: "http://www.google.com",
+    userID: "222222",
+  },
+  "gggggg": {
+    longURL: "http://www.gmail.com", 
+    userID: "111111",
+  }
+  // "b2xVn2": "http://www.lighthouselabs.ca",
+  // "9sm5xK": "http://www.google.com"
+
 };
 
 // Data storage for users who access the webpage
 const users = {
-  userRandomID: {
+  "111111": {
     id: "userRandomID",
     email: "user@example.com",
-    password: "123456",
+    password: "$2a$10$.UAc3RxtIlUeyHIPfecuBeGpIhGAL4DJ49vOiuY3GRFhCBqtBYtY6", // Hash for 123456
   },
-  user2RandomID: {
+  "222222": {
     id: "user2RandomID",
     email: "user2@example.com",
-    password: "dishwasher-funk",
+    password: "$2a$10$8G99V6buGoyrA1xIz1tboO0ivieqV2WLajMSYppN2LqIl5hRIoLKq", // Hash for abcdef
   },
 };
+
+// function that returns URLs that belongs to that user
+function urlsForUser(id)  {
+  let ownURL = {};
+  for (let i in urlDatabase) {
+    if (id === urlDatabase[i].userID) {
+      ownURL[i] = {
+        longURL: "",
+      };
+      ownURL[i].longURL = urlDatabase[i].longURL;
+    }
+  }
+  return ownURL;
+}
+
+console.log(urlsForUser('userRandomID'));
 
 // Look up whether email already exists within the users data storage
 function getUserByEmail(email) {
@@ -57,10 +89,12 @@ function getUserByEmail(email) {
 }
 
 // Look up whether password matches with what is stored within users data storage
-function passwordCheck(pw) {
+// hashed! 
+function passwordCheck(email, pw) {
+
   for (let i in users) {
-    if(pw === users[i].password) {
-      return true;
+    if (users[i].email === email) {
+      return bcrypt.compareSync(pw, users[i].password);
     }
   }
   return false;
@@ -69,10 +103,12 @@ function passwordCheck(pw) {
 // Features start here! 
 
 // Sign up for account using email and password
+// Hashed!
 app.post("/register", (req, res) => {
   const newId = generateRandomString(); 
   let email = req.body.email;
   let pw = req.body.password;
+  let hpw = bcrypt.hashSync(pw, 10);
 
   if(email === "" || pw === "") {
     res.status(400).send('Please fill out both email and password.');
@@ -87,7 +123,7 @@ app.post("/register", (req, res) => {
   users[newId] = {
     id: newId,
     email: email,
-    password: pw,
+    password: hpw,
   }
 
   res.cookie('user_id', newId);
@@ -133,7 +169,7 @@ app.post("/login", (req, res) => {
     res.status(403).send('That email cannot be found.');
     return;
   } else {
-    if (!passwordCheck(pw)) {
+    if (!passwordCheck(email, pw)) {
       res.status(403).send('That password is incorrect');
     } else {
 
@@ -158,79 +194,124 @@ app.get("/urls", (req, res) => {
   const userId = req.cookies['user_id'];
   const user = users[userId];
 
+  if (!userId) {
+    res.status(401).send('This feature is only available to registered users. Please login!');
+    return;
+  }
+
   const templateVars = { 
-    urls: urlDatabase,
+    urls: urlsForUser(userId),  // Solved
     user: user,
   };
 
   res.render("urls_index", templateVars);
 })
 
-// Displays all the shortUrl and its corresponding longUrl
+// Displays all the shortURL and its corresponding longURL
+// Fixed!
 app.post("/urls", (req, res) => {
+
   const userId = req.cookies['user_id'];
   const user = users[userId];
+
+  console.log(req.body); // Log the POST request body to the console
+  const shortURL = generateRandomString();
+
+  urlDatabase[shortURL] = {
+    longURL: req.body.longURL,
+    userID: userId, 
+  };
 
   const templateVars = { 
     user: user,
   };
+
+  res.redirect(`/urls/${shortURL}`); 
+});
+
+// Add new longURL 
+// Fixed!
+app.get("/urls/new", (req, res) => {
+  const userId = req.cookies['user_id'];
+  const user = users[userId];
+
+  if (!userId) {
+    return res.redirect('/login');
+  }
+  
+  const templateVars = { 
+    urls: urlDatabase,
+    user: user,
+  };
+
+  res.render("urls_new", templateVars);
+});
+
+// Delete existing entry in the Database
+// Fixed!
+app.post("/urls/:id/delete", (req, res) => {
+  const shortURL = req.params.id;
+
+  const userId = req.cookies['user_id'];
+  //const user = users[userId];
+
+  let obj = urlsForUser(userId);
+
+  if(!obj.hasOwnProperty(shortURL)) {
+    res.status(401).send('You do not own this URL!');
+  };
+
+  delete urlDatabase[shortURL];
+  res.redirect(`/urls`);
+})
+
+// Edit existing URL to a different one based on user input
+// Fixed! 
+app.post("/urls/:id/newUrl", (req, res) => {
+  const userId = req.cookies['user_id'];
+  const shortURL = req.params.id;
+  const newUrl = req.body.newUrl;
+
+  let obj = urlsForUser(userId);
+
+  if(!obj.hasOwnProperty(shortURL)) {
+    res.status(401).send('You do not own this URL!');
+  };
+  
+  urlDatabase[shortURL].longURL = newUrl;
+
+  res.redirect(`/urls`);
+})
+
+// Assigns new longURL to shortURL  
+// Fixed! 
+app.get("/urls/:id", (req, res) => {
+  const shortURL = req.params.id;
+
+  const userId = req.cookies['user_id'];
+  const user = users[userId];
 
   if (!userId) {
     res.status(401).send('This feature is only available to registered users. Please login!');
     return;
   }
 
+  let obj = urlsForUser(userId);
+  let present = 0;
 
-  console.log(req.body); // Log the POST request body to the console
-  const shortUrl = generateRandomString();
-  urlDatabase[shortUrl] = req.body.longURL;
-  res.redirect(`/urls/${shortUrl}`, templateVars); 
-});
-
-// Add new longURL 
-app.get("/urls/new", (req, res) => {
-  const userId = req.cookies['user_id'];
-  const user = users[userId];
-
-  const templateVars = { 
-    user: user,
-  };
-
-  if (!userId) {
-    res.redirect('/login');
-    return;
+  for (let i in obj) {
+    if (i === shortURL) {
+      present++;
+    }
   }
 
-  res.render("urls_new", templateVars);
-});
-
-// Delete existing entry in the Database
-app.post("/urls/:id/delete", (req, res) => {
-  const shortUrl = req.params.id;
-  delete urlDatabase[shortUrl];
-  res.redirect(`/urls`);
-})
-
-// Edit existing URL to a different one based on user input
-app.post("/urls/:id/newUrl", (req, res) => {
-  const shortUrl = req.params.id;
-  const newUrl = req.body.newUrl;
-
-  urlDatabase[shortUrl] = newUrl;
-
-  res.redirect(`/urls`);
-})
-
-// Assigns new longURL to shortURL  
-app.get("/urls/:id", (req, res) => {
-  const shortUrl = req.params.id;
-  
-  const userId = req.cookies['user_id'];
-  const user = users[userId];
+  if (present === 0) {
+    res.status(401).send('You do not own this URL!');
+  }
 
   const templateVars = { 
-    id: shortUrl, 
-    longURL: urlDatabase[shortUrl],
+    id: shortURL, 
+    longURL: urlDatabase[shortURL].longURL,
     user: user,
   };
 
@@ -238,16 +319,17 @@ app.get("/urls/:id", (req, res) => {
 })
 
 // Transferring from shortURL to longURL
+// Fixed! 
 app.get("/u/:id", (req, res) => {
-  let shortUrl = req.params.id;
-  const longUrl = urlDatabase[shortUrl];
+  let shortURL = req.params.id;
+  const longURL = urlDatabase[shortURL].longURL;
 
-  if (!longUrl) {
-    res.status(400).send(`The short URL ID ${shortUrl} does not exist.`);
+  if (!longURL) {
+    res.status(400).send(`The short URL ID ${shortURL} does not exist.`);
     return;
   }
 
-  res.redirect(longUrl);
+  res.redirect(longURL);
 })
 
 // Homepage, greets with Hello
@@ -256,7 +338,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/urls.json", (req, res) => {
-  res.json(urlDatabase);
+  res.json(urlDatabase[req.cookies['user_id']]);
 });
 
 app.get("/hello", (req, res) => {
